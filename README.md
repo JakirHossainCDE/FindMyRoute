@@ -151,3 +151,9 @@ A simple wrapper script to make the `findmyroute.py` script easy to use. It impo
 ## License
 
 This project is open-source and available under the MIT License.
+
+
+
+## Copyright
+© 2025 – FindMyRoute Development Team: Anma Azeem, Annabelle Kiefer, Demet Akbaba, Most Sanjida Anjum Suchi and Md Jakir Hossain.  
+Distributed under the GNU General Public License v3.0.
