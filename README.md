@@ -65,7 +65,7 @@ pip install osmnx
 
 The project is structured with the following key files:
 
-* `index.html`: The main web page for the application.
+* `index.html`: The main web page for the application {output folder}.
 
 * `findmyroute.py`: A Python script for extracting and saving tourist attraction data from OpenStreetMap.
 
@@ -76,7 +76,7 @@ The project is structured with the following key files:
 1. **Clone the Repository:**
 
    ```
-   git clone [https://github.com/your-username/FindMyRoute.git](https://github.com/your-username/FindMyRoute.git)
+   git clone https://github.com/JakirHossainCDE/FindMyRoute.git
    cd FindMyRoute
    
    ```
