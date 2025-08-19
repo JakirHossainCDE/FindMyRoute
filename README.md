@@ -16,6 +16,10 @@ The application allows users to:
 
 * Animate the calculated route on the map to visualize the journey.
 
+
+  <img width="1360" height="654" alt="image" src="https://github.com/user-attachments/assets/c0ca9454-c952-4f66-8999-e4fe7c625225" />
+
+
 ## Technologies Used
 
 ### Frontend
