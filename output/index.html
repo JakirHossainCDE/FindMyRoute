@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Salzburg City Explorer - Interactive Map</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        /* Custom styles that Tailwind doesn't cover */
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        
+        .attraction-marker, .poi-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        
+        .attraction-marker {
+            width: 36px;
+            height: 36px;
+            font-size: 16px;
+        }
+        
+        .poi-marker {
+            width: 28px;
+            height: 28px;
+            font-size: 12px;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 15px rgba(0, 123, 255, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+        }
+        
+        .attraction-marker.pulsing, .poi-marker.pulsing {
+            animation: pulse 1.5s infinite ease-out;
+        }
+        
+        .animated-route-point {
+            background-color: red;
+            border-radius: 50%;
+            width: 15px;
+            height: 15px;
+            border: 2px solid white;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+            z-index: 999;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #007BFF;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+        
+        #file-input {
+            display: none;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 18px;
+            background: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s ease, transform 0.1s ease;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .file-input-label:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex flex-col min-h-screen md:flex-row">
+        <div class="w-full md:w-96 bg-white p-6 shadow-lg overflow-y-auto">
+            
+            <h1 class="text-3xl font-bold"><i class="fas fa-globe-americas"></i> FindMyRoute</h1>
+            
+            <p class="text-gray-600 mb-6">Discover key attractions, explore predefined routes, and plan your optimized tour.</p>
+            
+            <div class="mb-6">
+                <label for="file-input" class="file-input-label mb-2">
+                    <i class="fas fa-upload"></i> Upload Attractions CSV
+                </label>
+                <input type="file" id="file-input" accept=".csv">
+                <div id="file-status" class="text-sm text-gray-500 mt-1">No file selected</div>
+            </div>
+            
+            <div class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
+                <label for="attractions-range" class="font-semibold text-blue-800 mb-2 block">
+                    Show Top <span id="num-attractions-display" class="font-bold text-blue-600">10</span> Attractions:
+                </label>
+                <input type="range" id="attractions-range" min="1" max="22" value="10" class="w-full mt-2">
+            </div>
+            
+            <div id="attractions-list" class="mb-6 overflow-y-auto">
+                <div class="text-center text-gray-500 py-4">Upload a CSV file to see attractions</div>
+            </div>
+            
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <div class="flex justify-between mb-2 text-sm">
+                    <span class="font-semibold text-blue-800">Optimized Route:</span>
+                    <span id="route-name" class="text-gray-700">Selected Highlights</span>
+                </div>
+                <div class="flex justify-between mb-2 text-sm">
+                    <span class="font-semibold text-blue-800">Total Distance:</span>
+                    <span id="route-distance" class="text-gray-700">0 km</span>
+                </div>
+                <div class="flex justify-between mb-2 text-sm">
+                    <span class="font-semibold text-blue-800">Estimated Time:</span>
+                    <span id="route-time" class="text-gray-700">0 mins</span>
+                </div>
+                <div class="flex justify-between mb-4 text-sm">
+                    <span class="font-semibold text-blue-800">Attractions Selected:</span>
+                    <span id="route-stops" class="text-gray-700">0</span>
+                </div>
+                
+                <button id="optimize-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 mb-2 transition">
+                    <i class="fas fa-route"></i> Optimize Route
+                </button>
+                <button id="animate-route-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 mb-2 transition">
+                    <i class="fas fa-play"></i> Animate Route
+                </button>
+                <button id="export-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition">
+                    <i class="fas fa-download"></i> Export Map (Simulated)
+                </button>
+            </div>
+        </div>
+        
+        <div class="flex-1 relative">
+            <div id="map" class="h-full w-full"></div>
+            
+            <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center hidden rounded-lg">
+                <div class="spinner"></div>
+                <div id="loading-text" class="text-blue-800 font-medium text-lg">Calculating optimal route...</div>
+            </div>
+            
+            <div id="message-overlay" class="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center hidden z-50">
+                <div id="message-box" class="bg-white p-6 rounded-lg shadow-xl max-w-sm relative">
+                    <span id="message-text"></span>
+                    <button id="message-close-btn" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script>
+        // Initialize map centered on Salzburg, Austria
+        let map = L.map('map').setView([47.8095, 13.0550], 13);
+        
+        // Base Map Layers
+        const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            maxZoom: 19
+        }).addTo(map);
+        
+        const satellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        });
+        
+        const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
+        });
+        
+        const baseMaps = {
+            "OpenStreetMap": osm,
+            "Satellite": satellite,
+            "Topography": topo
+        };
+
+        L.control.layers(baseMaps).addTo(map);
+
+        L.control.scale({ imperial: false }).addTo(map);
+        
+        // Icon Definitions
+        const iconProperties = {
+            landmark: { icon: "landmark", color: "#005A9C" },
+            museum: { icon: "university", color: "#6A057F" },
+            historic: { icon: "building", color: "#8B4513" },
+            park: { icon: "tree", color: "#2E8B57" },
+            cafe: { icon: "coffee", color: "#A0522D" },
+            restaurant: { icon: "utensils", color: "#D2691E" },
+            shop: { icon: "shopping-bag", color: "#800080" },
+            religious: { icon: "place-of-worship", color: "#B8860B" },
+            info: { icon: "info-circle", color: "#777777" }
+        };
+        
+        // Global Variables
+        let attractionMarkers = [];
+        let routeControl = null;
+        let selectedAttractions = [];
+        let currentCityData = null;
+        let currentRouteGeometry = [];
+        let animationInterval = null;
+        let currentAnimationIndex = 0;
+        let animatedRoutePoint = null;
+        let numAttractionsToShow = 10;
+        
+        // Initialize with default Salzburg data
+        const defaultCityData = {
+            name: "Salzburg, Austria",
+            center: [47.8095, 13.0550],
+            zoom: 13,
+            attractions: [
+           
+            ]
+        };
+        
+        // Initialize with default data
+        currentCityData = defaultCityData;
+        updateAttractionsListDisplay();
+        
+        // CSV Upload Handler
+        document.getElementById('file-input').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            document.getElementById('file-status').textContent = `Loading ${file.name}...`;
+            showLoading("Processing CSV file...");
+            
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data.length === 0) {
+                        hideLoading();
+                        displayMessage("The CSV file is empty or couldn't be parsed.");
+                        return;
+                    }
+                    
+                    // Process CSV data into our format
+                    const attractions = results.data.map((row, index) => {
+                        return {
+                            id: index + 1,
+                            name: row.name || row.Name || row.attraction || "Unnamed Attraction",
+                            lat: parseFloat(row.lat || row.latitude || row.Latitude || 47.8),
+                            lng: parseFloat(row.lng || row.longitude || row.Longitude || 13.0),
+                            category: row.category || row.type || "Attraction",
+                            icon: getIconType(row.category || row.type || "info")
+                        };
+                    });
+                    
+                    // Update city data with new attractions
+                    currentCityData = {
+                        name: "Uploaded Attractions",
+                        center: [47.8095, 13.0550],
+                        zoom: 13,
+                        attractions: attractions
+                    };
+                    
+                    // Update the slider max value
+                    const attractionsRange = document.getElementById('attractions-range');
+                    attractionsRange.max = attractions.length;
+                    attractionsRange.value = Math.min(10, attractions.length);
+                    document.getElementById('num-attractions-display').textContent = attractionsRange.value;
+                    numAttractionsToShow = parseInt(attractionsRange.value);
+                    
+                    // Update the display
+                    updateAttractionsListDisplay();
+                    document.getElementById('file-status').textContent = `${attractions.length} attractions loaded from ${file.name}`;
+                    hideLoading();
+                },
+                error: function(error) {
+                    console.error('Error loading CSV:', error);
+                    hideLoading();
+                    document.getElementById('file-status').textContent = 'Error loading file';
+                    displayMessage('Error processing CSV file. Please check the file format.');
+                }
+            });
+        });
+        
+        // Helper function to determine icon type from category
+        function getIconType(category) {
+            const lowerCat = category.toLowerCase();
+            if (lowerCat.includes("museum")) return "museum";
+            if (lowerCat.includes("landmark")) return "landmark";
+            if (lowerCat.includes("historic")) return "historic";
+            if (lowerCat.includes("park") || lowerCat.includes("garden")) return "park";
+            if (lowerCat.includes("cafe") || lowerCat.includes("coffee")) return "cafe";
+            if (lowerCat.includes("restaurant") || lowerCat.includes("dining")) return "restaurant";
+            if (lowerCat.includes("shop") || lowerCat.includes("store")) return "shop";
+            if (lowerCat.includes("church") || lowerCat.includes("religious")) return "religious";
+            return "info";
+        }
+        
+        // Update attractions list display
+        function updateAttractionsListDisplay() {
+            // Clear existing markers
+            attractionMarkers.forEach(marker => map.removeLayer(marker));
+            attractionMarkers = [];
+            
+            const attractionsListDiv = document.getElementById('attractions-list');
+            attractionsListDiv.innerHTML = '';
+            
+            if (!currentCityData || !currentCityData.attractions || currentCityData.attractions.length === 0) {
+                attractionsListDiv.innerHTML = '<div class="text-center text-gray-500 py-4">No attractions available</div>';
+                return;
+            }
+            
+            // Get the top N attractions based on the slider value
+            const attractionsToDisplay = currentCityData.attractions.slice(0, numAttractionsToShow);
+            
+            attractionsToDisplay.forEach(attraction => {
+                // Create Leaflet marker
+                const marker = L.marker([attraction.lat, attraction.lng], {
+                    icon: L.divIcon({
+                        html: `<div style="background-color: ${iconProperties[attraction.icon].color};" 
+                                  class="attraction-marker">
+                                  <i class="fas fa-${iconProperties[attraction.icon].icon}"></i>
+                              </div>`,
+                        className: 'attraction-marker-container',
+                        iconSize: [36, 36],
+                        iconAnchor: [18, 36]
+                    })
+                }).addTo(map);
+                
+                marker.bindPopup(`<b>${attraction.name}</b><br>${attraction.category}`);
+                marker.attractionData = attraction;
+                attractionMarkers.push(marker);
+                
+                // Create list item
+                const attractionItem = document.createElement('div');
+                attractionItem.className = 'bg-white p-3 mb-2 rounded-lg shadow-sm border border-gray-200 flex items-center gap-3 cursor-pointer hover:bg-blue-50 transition';
+                if (selectedAttractions.includes(attraction.id)) {
+                    attractionItem.classList.add('bg-green-50', 'border-green-300');
+                }
+                attractionItem.innerHTML = `
+                    <div class="text-blue-800 text-xl w-8 h-8 flex items-center justify-center rounded-full" style="background-color: ${iconProperties[attraction.icon].color}20;">
+                        <i class="fas fa-${iconProperties[attraction.icon].icon}"></i>
+                    </div>
+                    <div class="flex-1">
+                        <div class="font-semibold">${attraction.name}</div>
+                        <div class="text-sm text-gray-500">${attraction.category}</div>
+                    </div>
+                    <div class="text-blue-600">
+                        <i class="fas ${selectedAttractions.includes(attraction.id) ? 'fa-check' : 'fa-plus'}"></i>
+                    </div>
+                `;
+                
+                // Add click listener
+                attractionItem.addEventListener('click', function() {
+                    toggleAttractionSelection(attraction.id, attractionItem);
+                });
+                
+                attractionsListDiv.appendChild(attractionItem);
+            });
+            
+            // Update marker pulsing for selected attractions
+            attractionMarkers.forEach(marker => {
+                if (selectedAttractions.includes(marker.attractionData.id)) {
+                    marker._icon.classList.add('pulsing');
+                } else {
+                    marker._icon.classList.remove('pulsing');
+                }
+            });
+        }
+        
+        // Toggle attraction selection
+        function toggleAttractionSelection(attractionId, element) {
+            const index = selectedAttractions.indexOf(attractionId);
+            const icon = element.querySelector('.fa-plus, .fa-check');
+            const marker = attractionMarkers.find(m => m.attractionData.id === attractionId);
+            
+            if (index === -1) {
+                selectedAttractions.push(attractionId);
+                icon.classList.remove('fa-plus');
+                icon.classList.add('fa-check');
+                element.classList.add('bg-green-50', 'border-green-300');
+                
+                if (marker) {
+                    marker._icon.classList.add('pulsing');
+                }
+            } else {
+                selectedAttractions.splice(index, 1);
+                icon.classList.remove('fa-check');
+                icon.classList.add('fa-plus');
+                element.classList.remove('bg-green-50', 'border-green-300');
+                
+                if (marker) {
+                    marker._icon.classList.remove('pulsing');
+                }
+            }
+            
+            updateRouteInfo();
+        }
+        
+        // Update route information display
+        function updateRouteInfo() {
+            document.getElementById('route-stops').textContent = selectedAttractions.length;
+            document.getElementById('route-distance').textContent = '0 km';
+            document.getElementById('route-time').textContent = '0 mins';
+        }
+        
+        // Show optimized route
+        function showOptimizedRoute() {
+            if (selectedAttractions.length < 2) {
+                displayMessage("Please select at least 2 attractions to optimize a route.");
+                return;
+            }
+            
+            // Stop any current animation
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+                document.getElementById('animate-route-btn').innerHTML = '<i class="fas fa-play"></i> Animate Route';
+            }
+            if (animatedRoutePoint) {
+                map.removeLayer(animatedRoutePoint);
+                animatedRoutePoint = null;
+            }
+            
+            showLoading("Calculating optimal route...");
+            
+            // Simulate network delay
+            setTimeout(() => {
+                if (routeControl) {
+                    map.removeControl(routeControl);
+                }
+                
+                // Prepare waypoints
+                const waypoints = selectedAttractions.map(id => {
+                    const attraction = currentCityData.attractions.find(a => a.id === id);
+                    return L.latLng(attraction.lat, attraction.lng);
+                });
+                
+                // Initialize routing control
+                routeControl = L.Routing.control({
+                    waypoints: waypoints,
+                    show: true,
+                    addWaypoints: false,
+                    draggableWaypoints: false,
+                    fitSelectedRoutes: true,
+                    lineOptions: {
+                        styles: [{ color: '#007BFF', opacity: 0.8, weight: 6 }]
+                    },
+                    createMarker: function() { return null; }
+                }).addTo(map);
+                
+                // Handle route found
+                routeControl.on('routesfound', function(e) {
+                    const routes = e.routes;
+                    if (routes && routes.length > 0) {
+                        const route = routes[0];
+                        document.getElementById('route-distance').textContent = 
+                            `${(route.summary.totalDistance / 1000).toFixed(1)} km`;
+                        document.getElementById('route-time').textContent = 
+                            `${Math.round(route.summary.totalTime / 60)} mins`;
+                        
+                        currentRouteGeometry = route.coordinates;
+                    }
+                    hideLoading();
+                });
+                
+                // Handle routing errors
+                routeControl.on('routingerror', function(e) {
+                    hideLoading();
+                    console.error("Routing error:", e.error.message);
+                    displayMessage("Could not calculate route. Please try again or select different attractions.");
+                });
+                
+            }, 1000);
+        }
+        
+        // Animate route
+        function animateRoute() {
+            if (currentRouteGeometry.length === 0) {
+                displayMessage("No route to animate. Please optimize a route first.");
+                return;
+            }
+            
+            if (animationInterval) {
+                clearInterval(animationInterval);
+                animationInterval = null;
+                if (animatedRoutePoint) {
+                    map.removeLayer(animatedRoutePoint);
+                    animatedRoutePoint = null;
+                }
+                document.getElementById('animate-route-btn').innerHTML = '<i class="fas fa-play"></i> Animate Route';
+                return;
+            }
+            
+            document.getElementById('animate-route-btn').innerHTML = '<i class="fas fa-pause"></i> Pause Animation';
+            
+            currentAnimationIndex = 0;
+            const animationSpeed = 100;
+            
+            if (!animatedRoutePoint) {
+                animatedRoutePoint = L.circleMarker(currentRouteGeometry[currentAnimationIndex], {
+                    radius: 7,
+                    fillColor: "red",
+                    color: "white",
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 1
+                }).addTo(map);
+            } else {
+                animatedRoutePoint.setLatLng(currentRouteGeometry[currentAnimationIndex]).addTo(map);
+            }
+            
+            animationInterval = setInterval(() => {
+                if (currentAnimationIndex < currentRouteGeometry.length) {
+                    const point = currentRouteGeometry[currentAnimationIndex];
+                    map.panTo(point, {
+                        animate: true,
+                        duration: animationSpeed / 1000,
+                        easeLinearity: 0.5
+                    });
+                    
+                    animatedRoutePoint.setLatLng(point);
+                    animatedRoutePoint.bringToFront();
+                    
+                    currentAnimationIndex++;
+                } else {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                    document.getElementById('animate-route-btn').innerHTML = '<i class="fas fa-redo"></i> Replay Animation';
+                    if (animatedRoutePoint) {
+                        map.removeLayer(animatedRoutePoint);
+                        animatedRoutePoint = null;
+                    }
+                }
+            }, animationSpeed);
+        }
+        
+        // Show loading overlay
+        function showLoading(message) {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+            document.getElementById('loading-text').textContent = message;
+        }
+        
+        // Hide loading overlay
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+        
+        // Display message
+        function displayMessage(message) {
+            document.getElementById('message-text').textContent = message;
+            document.getElementById('message-overlay').classList.remove('hidden');
+        }
+        
+        // Hide message
+        function hideMessage() {
+            document.getElementById('message-overlay').classList.add('hidden');
+        }
+        
+        // Event Listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Attractions slider
+            document.getElementById('attractions-range').addEventListener('input', function() {
+                numAttractionsToShow = parseInt(this.value);
+                document.getElementById('num-attractions-display').textContent = numAttractionsToShow;
+                updateAttractionsListDisplay();
+            });
+            
+            // Optimize route button
+            document.getElementById('optimize-btn').addEventListener('click', showOptimizedRoute);
+            
+            // Animate route button
+            document.getElementById('animate-route-btn').addEventListener('click', animateRoute);
+            
+            // Export button (simulated)
+            document.getElementById('export-btn').addEventListener('click', function() {
+                displayMessage("Map export simulated. This would generate a PNG or shareable link of the map with the route.");
+            });
+            
+            // Message close button
+            document.getElementById('message-close-btn').addEventListener('click', hideMessage);
+        });
+    </script>
+</body>
+</html>
