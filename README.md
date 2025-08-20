@@ -1,6 +1,6 @@
 # FindMyRoute: A City Path Optimizer
 
-## Project Overview
+## Project Overview  
 
 FindMyRoute is an interactive web application designed to help users discover and optimize travel paths through a city. The current implementation focuses on the city of Salzburg, Austria, but it is built to be extensible to any city by simply uploading a CSV file of attractions.
 
