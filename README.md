@@ -16,9 +16,8 @@ The application allows users to:
 
 * Animate the calculated route on the map to visualize the journey.
 
-
-  <img width="1360" height="654" alt="image" src="https://github.com/user-attachments/assets/c0ca9454-c952-4f66-8999-e4fe7c625225" />
-
+WebMap
+<img width="1358" height="655" alt="image" src="https://github.com/user-attachments/assets/48d6cd76-402c-4b47-ba74-b50684ffe552" />
 
 ## Technologies Used
 
