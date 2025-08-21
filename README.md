@@ -26,7 +26,7 @@ This application solves the classic Traveling Salesperson Problem (TSP) to find 
 * **Nearest Neighbor:**  A fast heuristic algorithm for quick results.
 * **Simulated Annealing:**  A metaheuristic approach for better, near-optimal solutions.
 * **Genetic Algorithm:**  An evolutionary algorithm that "evolves" high-quality routes over generations.
-* 
+  
 ## Technologies Used
 
 ### Frontend
