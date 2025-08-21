@@ -1,7 +1,7 @@
 """
 FindMyRoute - Extract Tourist Attractions from OpenStreetMap
 Improved version to ensure exactly 20 attractions with valid names
-"""
+"""  
 import os
 import json
 import csv
