@@ -16,10 +16,16 @@ The application allows users to:
 
 * Animate the calculated route on the map to visualize the journey.
 
+WebMap
+<img width="1358" height="655" alt="image" src="https://github.com/user-attachments/assets/48d6cd76-402c-4b47-ba74-b50684ffe552" />
 
-  <img width="1360" height="654" alt="image" src="https://github.com/user-attachments/assets/c0ca9454-c952-4f66-8999-e4fe7c625225" />
+## Technologies Used
+This application solves the classic Traveling Salesperson Problem (TSP) to find the shortest path between selected attractions. It features three distinct optimization algorithms:
 
-
+* **Nearest Neighbor:**  A fast heuristic algorithm for quick results.
+* **Simulated Annealing:**  A metaheuristic approach for better, near-optimal solutions.
+* **Genetic Algorithm:**  An evolutionary algorithm that "evolves" high-quality routes over generations.
+* 
 ## Technologies Used
 
 ### Frontend
@@ -128,7 +134,7 @@ The `index.html` file contains the full frontend code, including HTML, CSS, and 
 
 * `updateAttractionsListDisplay()`: Renders attraction markers on the map and populates the list in the control panel.
 
-* `showOptimizedRoute()`: Uses the Leaflet Routing Machine to calculate and display the route.
+* `showOptimizedRoute()`: Uses the classic Traveling Salesperson Problem (TSP)  to calculate and display the route.
 
 * `animateRoute()`: Animates a marker along the route's path.
 
