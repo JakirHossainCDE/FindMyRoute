@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Salzburg City Explorer - Interactive Map</title>
+    <title>Salzburg City Explorer - Interactive Map with Route Optimization</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
-        /* Custom styles that Tailwind doesn't cover */
         #map {
             height: 100vh;
             width: 100%;
@@ -81,80 +80,135 @@
         
         .file-input-label {
             display: inline-block;
-            padding: 10px 18px;
+            padding: 8px 14px;
             background: #007BFF;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 14px;
             transition: background 0.3s ease, transform 0.1s ease;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            gap: 6px;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
         }
         
         .file-input-label:hover {
             background: #0056b3;
             transform: translateY(-1px);
         }
+        
+        .optimization-controls {
+            background-color: #f0f9ff;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+            border: 1px solid #bae6fd;
+        }
+        
+        .algorithm-info {
+            background-color: #fffbeb;
+            border-left: 3px solid #f59e0b;
+            padding: 8px;
+            margin-top: 8px;
+            border-radius: 3px;
+            font-size: 0.8rem;
+        }
+        
+        /* Custom scrollbar for panel */
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .panel-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb {
+            background: #c5c5c5;
+            border-radius: 3px;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
     <div class="flex flex-col min-h-screen md:flex-row">
-        <div class="w-full md:w-96 bg-white p-6 shadow-lg overflow-y-auto">
+        <!-- Left Panel with reduced size -->
+        <div class="w-full md:w-80 bg-white p-4 shadow-lg overflow-y-auto">
             
-            <h1 class="text-3xl font-bold"><i class="fas fa-globe-americas"></i> FindMyRoute</h1>
+            <h1 class="text-2xl font-bold mb-3"><i class="fas fa-route mr-1"></i> FindMyRoute</h1>
             
-            <p class="text-gray-600 mb-6">Discover key attractions, explore predefined routes, and plan your optimized tour.</p>
+            <p class="text-gray-600 text-sm mb-4">Discover key attractions, explore predefined routes, and plan your optimized tour.</p>
             
-            <div class="mb-6">
-                <label for="file-input" class="file-input-label mb-2">
-                    <i class="fas fa-upload"></i> Upload Attractions CSV
+            <div class="mb-4">
+                <label for="file-input" class="file-input-label mb-1">
+                    <i class="fas fa-upload"></i> Upload CSV
                 </label>
                 <input type="file" id="file-input" accept=".csv">
-                <div id="file-status" class="text-sm text-gray-500 mt-1">No file selected</div>
+                <div id="file-status" class="text-xs text-gray-500 mt-1">No file selected</div>
             </div>
             
-            <div class="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <label for="attractions-range" class="font-semibold text-blue-800 mb-2 block">
+            <div class="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <label for="attractions-range" class="font-semibold text-blue-800 mb-1 block text-sm">
                     Show Top <span id="num-attractions-display" class="font-bold text-blue-600">10</span> Attractions:
                 </label>
-                <input type="range" id="attractions-range" min="1" max="22" value="10" class="w-full mt-2">
+                <input type="range" id="attractions-range" min="1" max="22" value="10" class="w-full mt-1">
             </div>
             
-            <div id="attractions-list" class="mb-6 overflow-y-auto">
-                <div class="text-center text-gray-500 py-4">Upload a CSV file to see attractions</div>
+            <div class="optimization-controls">
+                <h3 class="font-semibold text-blue-800 mb-1 text-sm"><i class="fas fa-cogs mr-1"></i> Optimization Settings</h3>
+                
+                <div class="mb-2">
+                    <label for="optimization-method" class="block text-xs font-medium text-gray-700 mb-1">Optimization Method:</label>
+                    <select id="optimization-method" class="w-full p-1 text-sm border border-gray-300 rounded-md">
+                        <option value="nearest-neighbor">Nearest Neighbor (Fast)</option>
+                        <option value="simulated-annealing">Simulated Annealing (Better)</option>
+                        <option value="genetic-algorithm">Genetic Algorithm (Best)</option>
+                    </select>
+                </div>
+                
+                <div class="algorithm-info">
+                    <i class="fas fa-info-circle text-amber-500 mr-1"></i>
+                    <span id="algorithm-description" class="text-xs">Finds reasonably good routes quickly.</span>
+                </div>
             </div>
             
-            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
-                <div class="flex justify-between mb-2 text-sm">
+            <div id="attractions-list" class="mb-4 overflow-y-auto max-h-64">
+                <div class="text-center text-gray-500 py-3 text-sm">Upload a CSV file to see attractions</div>
+            </div>
+            
+            <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                <div class="flex justify-between mb-1 text-xs">
                     <span class="font-semibold text-blue-800">Optimized Route:</span>
                     <span id="route-name" class="text-gray-700">Selected Highlights</span>
                 </div>
-                <div class="flex justify-between mb-2 text-sm">
+                <div class="flex justify-between mb-1 text-xs">
                     <span class="font-semibold text-blue-800">Total Distance:</span>
                     <span id="route-distance" class="text-gray-700">0 km</span>
                 </div>
-                <div class="flex justify-between mb-2 text-sm">
+                <div class="flex justify-between mb-1 text-xs">
                     <span class="font-semibold text-blue-800">Estimated Time:</span>
                     <span id="route-time" class="text-gray-700">0 mins</span>
                 </div>
-                <div class="flex justify-between mb-4 text-sm">
+                <div class="flex justify-between mb-3 text-xs">
                     <span class="font-semibold text-blue-800">Attractions Selected:</span>
                     <span id="route-stops" class="text-gray-700">0</span>
                 </div>
                 
-                <button id="optimize-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 mb-2 transition">
+                <button id="optimize-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-1 px-3 rounded text-sm flex items-center justify-center gap-1 mb-1 transition">
                     <i class="fas fa-route"></i> Optimize Route
                 </button>
-                <button id="animate-route-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 mb-2 transition">
+                <button id="animate-route-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-1 px-3 rounded text-sm flex items-center justify-center gap-1 mb-1 transition">
                     <i class="fas fa-play"></i> Animate Route
                 </button>
-                <button id="export-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition">
-                    <i class="fas fa-download"></i> Export Map (Simulated)
+                <button id="export-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white py-1 px-3 rounded text-sm flex items-center justify-center gap-1 transition">
+                    <i class="fas fa-download"></i> Export Map
                 </button>
             </div>
         </div>
@@ -165,6 +219,7 @@
             <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-90 flex flex-col items-center justify-center hidden rounded-lg">
                 <div class="spinner"></div>
                 <div id="loading-text" class="text-blue-800 font-medium text-lg">Calculating optimal route...</div>
+                <div id="optimization-progress" class="mt-2 text-sm text-blue-600"></div>
             </div>
             
             <div id="message-overlay" class="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center hidden z-50">
@@ -193,7 +248,7 @@
         });
         
         const topo = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-            attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (CC-BY-SA)'
+            attribution: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://openttopomap.org">OpenTopoMap</a> (CC-BY-SA)'
         });
         
         const baseMaps = {
@@ -236,13 +291,293 @@
             center: [47.8095, 13.0550],
             zoom: 13,
             attractions: [
-           
+                { id: 1, name: "Hohensalzburg Fortress", lat: 47.7945, lng: 13.0467, category: "Historic", icon: "historic" },
+                { id: 2, name: "Mirabell Palace", lat: 47.8065, lng: 13.0424, category: "Historic", icon: "historic" },
+                { id: 3, name: "Salzburg Cathedral", lat: 47.7981, lng: 13.0466, category: "Religious", icon: "religious" },
+                { id: 4, name: "Mozart's Birthplace", lat: 47.8000, lng: 13.0436, category: "Museum", icon: "museum" },
+                { id: 5, name: "Hellbrunn Palace", lat: 47.7625, lng: 13.0607, category: "Historic", icon: "historic" },
+                { id: 6, name: "Getreidegasse", lat: 47.7997, lng: 13.0432, category: "Shopping", icon: "shop" },
+                { id: 7, name: "Mönchsberg", lat: 47.7953, lng: 13.0425, category: "Park", icon: "park" },
+                { id: 8, name: "Salzburg Museum", lat: 47.7982, lng: 13.0473, category: "Museum", icon: "museum" },
+                { id: 9, name: "St. Peter's Abbey", lat: 47.7970, lng: 13.0453, category: "Religious", icon: "religious" },
+                { id: 10, name: "Salzach River", lat: 47.8045, lng: 13.0439, category: "Landmark", icon: "landmark" }
             ]
         };
         
         // Initialize with default data
         currentCityData = defaultCityData;
         updateAttractionsListDisplay();
+        
+        // Algorithm descriptions
+        const algorithmDescriptions = {
+            "nearest-neighbor": "Finds reasonably good routes quickly by always moving to the nearest unvisited attraction.",
+            "simulated-annealing": "Uses a probabilistic technique to find a good solution by simulating the annealing process of metals.",
+            "genetic-algorithm": "Emulates natural selection to evolve better routes over multiple generations for optimal results."
+        };
+        
+        // TSP Algorithms Implementation
+        function calculateDistance(lat1, lng1, lat2, lng2) {
+            // Haversine formula to calculate distance between two points
+            const R = 6371; // Earth's radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        function createDistanceMatrix(attractions) {
+            const matrix = [];
+            for (let i = 0; i < attractions.length; i++) {
+                matrix[i] = [];
+                for (let j = 0; j < attractions.length; j++) {
+                    if (i === j) {
+                        matrix[i][j] = 0;
+                    } else {
+                        matrix[i][j] = calculateDistance(
+                            attractions[i].lat, attractions[i].lng,
+                            attractions[j].lat, attractions[j].lng
+                        );
+                    }
+                }
+            }
+            return matrix;
+        }
+        
+        // Nearest Neighbor Algorithm
+        function solveTSPNearestNeighbor(attractions, distanceMatrix) {
+            if (attractions.length < 2) return attractions;
+            
+            const visited = new Array(attractions.length).fill(false);
+            const route = [0]; // Start with first attraction
+            visited[0] = true;
+            
+            for (let i = 1; i < attractions.length; i++) {
+                let last = route[route.length - 1];
+                let next = -1;
+                let minDist = Infinity;
+                
+                for (let j = 0; j < attractions.length; j++) {
+                    if (!visited[j] && distanceMatrix[last][j] < minDist) {
+                        minDist = distanceMatrix[last][j];
+                        next = j;
+                    }
+                }
+                
+                if (next !== -1) {
+                    route.push(next);
+                    visited[next] = true;
+                }
+            }
+            
+            return route.map(index => attractions[index]);
+        }
+        
+        // Simulated Annealing Algorithm
+        function solveTSPSimulatedAnnealing(attractions, distanceMatrix) {
+            if (attractions.length < 2) return attractions;
+            
+            // Start with a random route
+            let currentRoute = [...Array(attractions.length).keys()];
+            // Fisher-Yates shuffle
+            for (let i = currentRoute.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [currentRoute[i], currentRoute[j]] = [currentRoute[j], currentRoute[i]];
+            }
+            
+            let currentDistance = calculateTotalDistance(currentRoute, distanceMatrix);
+            let temperature = 1000;
+            const coolingRate = 0.003;
+            
+            while (temperature > 1) {
+                // Create a new candidate route by swapping two random attractions
+                const newRoute = [...currentRoute];
+                const pos1 = Math.floor(Math.random() * newRoute.length);
+                let pos2 = Math.floor(Math.random() * newRoute.length);
+                while (pos1 === pos2) {
+                    pos2 = Math.floor(Math.random() * newRoute.length);
+                }
+                
+                [newRoute[pos1], newRoute[pos2]] = [newRoute[pos2], newRoute[pos1]];
+                const newDistance = calculateTotalDistance(newRoute, distanceMatrix);
+                
+                // Decide if we should accept the new solution
+                if (acceptanceProbability(currentDistance, newDistance, temperature) > Math.random()) {
+                    currentRoute = newRoute;
+                    currentDistance = newDistance;
+                }
+                
+                // Cool down
+                temperature *= 1 - coolingRate;
+            }
+            
+            return currentRoute.map(index => attractions[index]);
+        }
+        
+        function calculateTotalDistance(route, distanceMatrix) {
+            let total = 0;
+            for (let i = 0; i < route.length - 1; i++) {
+                total += distanceMatrix[route[i]][route[i+1]];
+            }
+            // Add distance from last to first to complete the cycle
+            total += distanceMatrix[route[route.length-1]][route[0]];
+            return total;
+        }
+        
+        function acceptanceProbability(currentDistance, newDistance, temperature) {
+            if (newDistance < currentDistance) return 1.0;
+            return Math.exp((currentDistance - newDistance) / temperature);
+        }
+        
+        // Genetic Algorithm (simplified)
+        function solveTSPGeneticAlgorithm(attractions, distanceMatrix) {
+            if (attractions.length < 2) return attractions;
+            
+            const populationSize = 50;
+            const generations = 100;
+            const mutationRate = 0.01;
+            
+            // Initialize population
+            let population = [];
+            for (let i = 0; i < populationSize; i++) {
+                let individual = [...Array(attractions.length).keys()];
+                // Fisher-Yates shuffle
+                for (let j = individual.length - 1; j > 0; j--) {
+                    const k = Math.floor(Math.random() * (j + 1));
+                    [individual[j], individual[k]] = [individual[k], individual[j]];
+                }
+                population.push(individual);
+            }
+            
+            // Evolve population
+            for (let gen = 0; gen < generations; gen++) {
+                // Evaluate fitness
+                const fitness = population.map(route => ({
+                    route,
+                    fitness: 1 / calculateTotalDistance(route, distanceMatrix)
+                }));
+                
+                // Sort by fitness (descending)
+                fitness.sort((a, b) => b.fitness - a.fitness);
+                
+                // Select parents (tournament selection)
+                let newPopulation = [];
+                for (let i = 0; i < populationSize; i++) {
+                    // Always keep the best individual
+                    if (i === 0) {
+                        newPopulation.push(fitness[0].route);
+                        continue;
+                    }
+                    
+                    // Tournament selection
+                    const tournamentSize = 5;
+                    let tournament = [];
+                    for (let j = 0; j < tournamentSize; j++) {
+                        tournament.push(fitness[Math.floor(Math.random() * fitness.length)]);
+                    }
+                    tournament.sort((a, b) => b.fitness - a.fitness);
+                    newPopulation.push(tournament[0].route);
+                }
+                
+                // Crossover (ordered crossover)
+                for (let i = 1; i < newPopulation.length; i += 2) {
+                    if (Math.random() < 0.7) { // Crossover probability
+                        const parent1 = newPopulation[i-1];
+                        const parent2 = newPopulation[i];
+                        
+                        const start = Math.floor(Math.random() * parent1.length);
+                        const end = Math.floor(Math.random() * (parent1.length - start)) + start;
+                        
+                        const child1 = Array(parent1.length).fill(-1);
+                        const child2 = Array(parent1.length).fill(-1);
+                        
+                        // Copy segment from parents
+                        for (let j = start; j <= end; j++) {
+                            child1[j] = parent1[j];
+                            child2[j] = parent2[j];
+                        }
+                        
+                        // Fill remaining positions
+                        fillChild(child1, parent2, end);
+                        fillChild(child2, parent1, end);
+                        
+                        newPopulation[i-1] = child1;
+                        newPopulation[i] = child2;
+                    }
+                }
+                
+                // Mutation (swap mutation)
+                for (let i = 1; i < newPopulation.length; i++) {
+                    if (Math.random() < mutationRate) {
+                        const pos1 = Math.floor(Math.random() * newPopulation[i].length);
+                        let pos2 = Math.floor(Math.random() * newPopulation[i].length);
+                        while (pos1 === pos2) {
+                            pos2 = Math.floor(Math.random() * newPopulation[i].length);
+                        }
+                        
+                        [newPopulation[i][pos1], newPopulation[i][pos2]] = 
+                        [newPopulation[i][pos2], newPopulation[i][pos1]];
+                    }
+                }
+                
+                population = newPopulation;
+                
+                // Update progress (for UI)
+                if (gen % 10 === 0) {
+                    document.getElementById('optimization-progress').textContent = 
+                        `Generation ${gen}/${generations}...`;
+                }
+            }
+            
+            // Find the best route in the final population
+            let bestRoute = population[0];
+            let bestFitness = 1 / calculateTotalDistance(bestRoute, distanceMatrix);
+            
+            for (let i = 1; i < population.length; i++) {
+                const fitness = 1 / calculateTotalDistance(population[i], distanceMatrix);
+                if (fitness > bestFitness) {
+                    bestRoute = population[i];
+                    bestFitness = fitness;
+                }
+            }
+            
+            return bestRoute.map(index => attractions[index]);
+        }
+        
+        function fillChild(child, parent, end) {
+            let parentIndex = (end + 1) % child.length;
+            let childIndex = (end + 1) % child.length;
+            
+            while (child.includes(-1)) {
+                if (!child.includes(parent[parentIndex])) {
+                    child[childIndex] = parent[parentIndex];
+                    childIndex = (childIndex + 1) % child.length;
+                }
+                parentIndex = (parentIndex + 1) % child.length;
+            }
+        }
+        
+        // Optimize route order using selected algorithm
+        function optimizeRouteOrder(attractions) {
+            if (attractions.length < 2) return attractions;
+            
+            const algorithm = document.getElementById('optimization-method').value;
+            const distanceMatrix = createDistanceMatrix(attractions);
+            
+            switch (algorithm) {
+                case 'nearest-neighbor':
+                    return solveTSPNearestNeighbor(attractions, distanceMatrix);
+                case 'simulated-annealing':
+                    return solveTSPSimulatedAnnealing(attractions, distanceMatrix);
+                case 'genetic-algorithm':
+                    return solveTSPGeneticAlgorithm(attractions, distanceMatrix);
+                default:
+                    return solveTSPNearestNeighbor(attractions, distanceMatrix);
+            }
+        }
         
         // CSV Upload Handler
         document.getElementById('file-input').addEventListener('change', function(e) {
@@ -354,19 +689,19 @@
                 
                 // Create list item
                 const attractionItem = document.createElement('div');
-                attractionItem.className = 'bg-white p-3 mb-2 rounded-lg shadow-sm border border-gray-200 flex items-center gap-3 cursor-pointer hover:bg-blue-50 transition';
+                attractionItem.className = 'bg-white p-2 mb-1 rounded shadow-sm border border-gray-200 flex items-center gap-2 cursor-pointer hover:bg-blue-50 transition text-sm';
                 if (selectedAttractions.includes(attraction.id)) {
                     attractionItem.classList.add('bg-green-50', 'border-green-300');
                 }
                 attractionItem.innerHTML = `
-                    <div class="text-blue-800 text-xl w-8 h-8 flex items-center justify-center rounded-full" style="background-color: ${iconProperties[attraction.icon].color}20;">
+                    <div class="text-blue-800 text-lg w-6 h-6 flex items-center justify-center rounded-full" style="background-color: ${iconProperties[attraction.icon].color}20;">
                         <i class="fas fa-${iconProperties[attraction.icon].icon}"></i>
                     </div>
                     <div class="flex-1">
-                        <div class="font-semibold">${attraction.name}</div>
-                        <div class="text-sm text-gray-500">${attraction.category}</div>
+                        <div class="font-semibold truncate">${attraction.name}</div>
+                        <div class="text-xs text-gray-500 truncate">${attraction.category}</div>
                     </div>
-                    <div class="text-blue-600">
+                    <div class="text-blue-600 text-sm">
                         <i class="fas ${selectedAttractions.includes(attraction.id) ? 'fa-check' : 'fa-plus'}"></i>
                     </div>
                 `;
@@ -445,17 +780,25 @@
             
             showLoading("Calculating optimal route...");
             
-            // Simulate network delay
+            // Get selected attractions data
+            const selectedAttractionsData = selectedAttractions.map(id => {
+                return currentCityData.attractions.find(a => a.id === id);
+            });
+            
+            // Use setTimeout to allow the UI to update before starting the heavy computation
             setTimeout(() => {
+                // Optimize the route order
+                const optimizedAttractions = optimizeRouteOrder(selectedAttractionsData);
+                
+                // Prepare waypoints in optimized order
+                const waypoints = optimizedAttractions.map(attraction => {
+                    return L.latLng(attraction.lat, attraction.lng);
+                });
+                
+                // Remove any existing route
                 if (routeControl) {
                     map.removeControl(routeControl);
                 }
-                
-                // Prepare waypoints
-                const waypoints = selectedAttractions.map(id => {
-                    const attraction = currentCityData.attractions.find(a => a.id === id);
-                    return L.latLng(attraction.lat, attraction.lng);
-                });
                 
                 // Initialize routing control
                 routeControl = L.Routing.control({
@@ -492,7 +835,7 @@
                     displayMessage("Could not calculate route. Please try again or select different attractions.");
                 });
                 
-            }, 1000);
+            }, 100);
         }
         
         // Animate route
@@ -560,6 +903,7 @@
         function showLoading(message) {
             document.getElementById('loading-overlay').classList.remove('hidden');
             document.getElementById('loading-text').textContent = message;
+            document.getElementById('optimization-progress').textContent = '';
         }
         
         // Hide loading overlay
@@ -585,6 +929,12 @@
                 numAttractionsToShow = parseInt(this.value);
                 document.getElementById('num-attractions-display').textContent = numAttractionsToShow;
                 updateAttractionsListDisplay();
+            });
+            
+            // Optimization method selector
+            document.getElementById('optimization-method').addEventListener('change', function() {
+                document.getElementById('algorithm-description').textContent = 
+                    algorithmDescriptions[this.value];
             });
             
             // Optimize route button
