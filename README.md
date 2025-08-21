@@ -20,6 +20,10 @@ WebMap
 <img width="1358" height="655" alt="image" src="https://github.com/user-attachments/assets/48d6cd76-402c-4b47-ba74-b50684ffe552" />
 
 ## Technologies Used
+* This application solves the classic Traveling Salesperson Problem (TSP) to find the shortest path between selected attractions. It features three distinct optimization algorithms:
+
+
+## Technologies Used
 
 ### Frontend
 
