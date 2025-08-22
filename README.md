@@ -155,6 +155,135 @@ This script is responsible for the data collection and processing.
 
 A simple wrapper script to make the `findmyroute.py` script easy to use. It imports the main function and calls it with a specified city name.
 
+## Python/Folium Approach
+
+### Installation Requirements
+
+```bash
+pip install folium
+```
+
+### Usage
+
+#### Basic Usage
+```bash
+python visualize_folium.py
+```
+
+#### Advanced Usage
+```bash
+python visualize_folium.py \
+    --city "Vienna, Austria" \
+    --input "data/vienna_attractions.json" \
+    --max-attractions 20 \
+    --optimization "simulated_annealing" \
+    --selected "1,3,5,7,9" \
+    --out "maps/vienna_route.html"
+```
+
+### Configuration Options
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--city` | "Salzburg, Austria" | City name for display |
+| `--input` | "output/salzburg_austria_attractions.json" | Input file (JSON/CSV) |
+| `--route` | "output/optimized_route.geojson" | Optional route GeoJSON |
+| `--max-attractions` | 15 | Maximum attractions to display |
+| `--optimization` | "simulated_annealing" | Algorithm choice |
+| `--cluster` | False | Enable marker clustering |
+| `--selected` | "1,4,8,12,5" | Comma-separated attraction IDs |
+| `--out` | "maps/salzburg_optimized.html" | Output HTML file |
+
+### Input Data Formats
+
+#### JSON Format
+```json
+[
+    {
+        "id": 1,
+        "name": "Hohensalzburg Fortress",
+        "lat": 47.7945,
+        "lng": 13.0467,
+        "category": "Historic",
+        "icon": "building"
+    }
+]
+```
+
+#### CSV Format
+```csv
+id,name,lat,lng,category,icon
+1,Hohensalzburg Fortress,47.7945,13.0467,Historic,building
+2,Mirabell Palace,47.8065,13.0424,Historic,building
+```
+
+### Supported Categories
+
+The system recognizes the following attraction categories with custom styling:
+
+- **Landmark** (blue) - Major city landmarks
+- **Museum** (purple) - Museums and cultural sites  
+- **Historic/Historic Site** (dark green) - Historical buildings and sites
+- **Memorial** (dark purple) - Monuments and memorials
+- **Park** (green) - Parks and natural areas
+- **Shopping** (pink) - Shopping districts and markets
+- **Religious/Religious Site** (orange) - Churches and religious sites
+- **Viewpoint** (cadet blue) - Scenic viewpoints
+- **Cafe** (brown) - Cafes and coffee shops
+- **Restaurant** (orange) - Dining establishments
+- **Attraction** (gray) - General attractions
+
+### Customization
+
+#### Adding New Cities
+
+1. **Create attraction data** in JSON or CSV format
+2. **Update default configuration** in the script:
+```python
+DEFAULT_CONFIG = {
+    "city": "Your City, Country",
+    "input": "data/your_city_attractions.json",
+    "max_attractions": 20,
+    "optimization": "simulated_annealing",
+    "selected": "1,2,3,4,5",
+    "out": "maps/your_city_route.html"
+}
+```
+
+#### Adding New Optimization Algorithms
+
+1. **Implement algorithm function**:
+```python
+def solve_tsp_your_algorithm(attractions: List[Dict]) -> List[Dict]:
+    # Your optimization logic here
+    return optimized_attractions
+```
+
+2. **Add to optimization choices**:
+```python
+parser.add_argument("--optimization", 
+    choices=["nearest_neighbor", "simulated_annealing", "your_algorithm"])
+```
+
+3. **Update algorithm descriptions**:
+```python
+algorithm_descriptions = {
+    "your_algorithm": "Description of your algorithm"
+}
+```
+
+#### Custom Styling
+
+Modify the `ICON_STYLE` dictionary to add new categories or change colors:
+
+```python
+ICON_STYLE["Your Category"] = {
+    "icon": "your-fontawesome-icon",
+    "color": "leaflet-color",
+    "hex": "#HEXCOLOR"
+}
+```
+
 ## License
 
 This project is open-source and available under the MIT License.
